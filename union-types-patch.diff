@@ -1,0 +1,71 @@
+diff --git a/Interception/Code/Generator/Interceptor.php b/Interception/Code/Generator/Interceptor.php
+index 0000000..1111111 100644
+--- a/Interception/Code/Generator/Interceptor.php
++++ b/Interception/Code/Generator/Interceptor.php
+@@ -1,4 +1,4 @@
+-<?php
++<?php
+ /**
+  * Copyright © Magento, Inc. All rights reserved.
+  * See COPYING.txt for license details.
+@@ -178,26 +178,56 @@ class Interceptor extends EntityAbstract
+     /**
+      * Returns return type
+      *
+      * @param \ReflectionMethod $method
+      * @return null|string
+      */
+-    private function getReturnTypeValue(\ReflectionMethod $method): ?string
+-    {
+-        $returnTypeValue = null;
+-        $returnType = $method->getReturnType();
+-        if ($returnType) {
+-            $returnTypeValue = ($returnType->allowsNull() ? '?' : '');
+-            $returnTypeValue .= ($returnType->getName() === 'self')
+-                ? $this->_getFullyQualifiedClassName($method->getDeclaringClass()->getName())
+-                : $returnType->getName();
+-        }
+-
+-        return $returnTypeValue;
+-    }
++    private function getReturnTypeValue(\ReflectionMethod $method): ?string
++    {
++        $returnTypeValue = null;
++        $returnType = $method->getReturnType();
++        if ($returnType) {
++            if ($returnType instanceof \ReflectionUnionType || $returnType instanceof \ReflectionIntersectionType) {
++                return $this->getReturnTypeValues($returnType, $method);
++            }
++
++            $className = $method->getDeclaringClass()->getName();
++            $returnTypeValue = ($returnType->allowsNull() && $returnType->getName() !== 'mixed' ? '?' : '');
++            $returnTypeValue .= ($returnType->getName() === 'self')
++                ? $className ? '\\' . ltrim($className, '\\') : ''
++                : $returnType->getName();
++        }
++
++        return $returnTypeValue;
++    }
++
++    /**
++     * Get return type values for Intersection|Union types
++     *
++     * @param \ReflectionIntersectionType|\ReflectionUnionType $returnType
++     * @param \ReflectionMethod $method
++     * @return string|null
++     */
++    private function getReturnTypeValues(
++        \ReflectionIntersectionType|\ReflectionUnionType $returnType,
++        \ReflectionMethod $method
++    ): ?string {
++        $returnTypeValue = [];
++        foreach ($method->getReturnType()->getTypes() as $type) {
++            $returnTypeValue[] =  $type->getName();
++        }
++
++        return implode(
++            $returnType instanceof \ReflectionUnionType ? '|' : '&',
++            $returnTypeValue
++        );
++    }
+ }
